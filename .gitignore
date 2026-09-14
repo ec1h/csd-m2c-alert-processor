@@ -1,0 +1,10 @@
+# Protect local configuration & audit dump containing secrets
+config-audit.json
+
+
+*.zip
+.terragrunt-cache/
+.terraform/
+*.tfstate
+*.tfstate.*
+.DS_Store
