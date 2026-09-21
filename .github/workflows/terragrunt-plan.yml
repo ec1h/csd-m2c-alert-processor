@@ -1,0 +1,21 @@
+# Input names/version are inferred from other ec1h repos' callers
+# (ec1h-go-n-pay-admin-portal, ec1h-go-n-pay-payment-gateway-utils) - the
+# reusable-workflows repo itself could not be inspected in this session.
+# Confirm the exact `with:` schema and current version tag against
+# ec1h/reusable-workflows before merging this file.
+name: Terragrunt Plan (UAT)
+
+on:
+  pull_request:
+    paths:
+      - "iac/**"
+
+jobs:
+  terragrunt-plan:
+    uses: ec1h/reusable-workflows/.github/workflows/reusable_terragrunt_plan.yml@0.1.11
+    secrets: inherit
+    with:
+      environment: uat
+      terragrunt_dir: "./iac/non-prod/uat/alert-processor"
+      terraform_version: "1.11.4"
+      terragrunt_version: "0.68.6"

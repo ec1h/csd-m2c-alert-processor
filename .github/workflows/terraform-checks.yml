@@ -1,0 +1,23 @@
+name: Terraform Checks
+
+on:
+  pull_request:
+    paths:
+      - "iac/**"
+
+jobs:
+  fmt-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.11.4"
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive iac/
+      # backend=false: syntax/type validation only, no state backend contact.
+      - name: Validate alert-processor module
+        working-directory: iac/modules/alert-processor
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate

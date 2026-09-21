@@ -1,0 +1,20 @@
+{
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "fingerprint": "replay-excessive-usage-0001",
+      "startsAt": "2026-09-21T04:13:12Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "https://grafana.example.test/alerting/grafana/excessive-usage/view",
+      "silenceURL": "https://grafana.example.test/alerting/silence/new",
+      "labels": {
+        "M2C": "Excessive Usage",
+        "SN": "3AEC440",
+        "MeterSN": "MTR-3AEC440",
+        "grafana_folder": "M2C Alerts"
+      },
+      "values": {}
+    }
+  ]
+}

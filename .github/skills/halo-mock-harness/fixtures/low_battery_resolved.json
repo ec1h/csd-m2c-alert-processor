@@ -1,0 +1,20 @@
+{
+  "status": "resolved",
+  "alerts": [
+    {
+      "status": "resolved",
+      "fingerprint": "replay-low-battery-0001",
+      "startsAt": "2026-09-21T04:13:12Z",
+      "endsAt": "2026-09-21T06:00:00Z",
+      "generatorURL": "https://grafana.example.test/alerting/grafana/low-battery/view",
+      "silenceURL": "https://grafana.example.test/alerting/silence/new",
+      "labels": {
+        "M2C": "Low Battery",
+        "SN": "3AEAA25",
+        "MeterSN": "MTR-3AEAA25",
+        "grafana_folder": "M2C Alerts"
+      },
+      "values": {}
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "fingerprint": "replay-device-reboot-0001",
+      "startsAt": "2026-09-21T04:13:12Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "https://grafana.example.test/alerting/grafana/device-reboot/view",
+      "silenceURL": "https://grafana.example.test/alerting/silence/new",
+      "labels": {
+        "M2C": "Device Reboot",
+        "SN": "3AEC5E2",
+        "MeterSN": "MTR-3AEC5E2",
+        "grafana_folder": "M2C Alerts"
+      },
+      "values": {}
+    }
+  ]
+}
