@@ -111,3 +111,13 @@ reproduces this as an environment/config problem
 (`server.scenario["create_ticket"] = "ticket_type_not_found"`), so don't
 spend time trying to "fix" it via payload changes — confirm the correct
 ticket type ID with the Halo owner once access is granted.
+
+## Stage 2 — once Halo access is granted
+Swap the mock for the real thing with
+[tests/test_halo_live_integration.py](../../../tests/test_halo_live_integration.py)
+(opt-in, skipped by default — see [tests/README.md](../../../tests/README.md))
+and the gated `live-halo-smoke.yml` workflow. It first checks OAuth token
+acquisition only (no side effects), then — opt-in via
+`HALO_LIVE_ALLOW_TICKET_CREATION=1` — creates one real ticket to confirm the
+actual `tickettype_id`/`team_id` values, which is the only thing this whole
+mock harness cannot prove for you.
