@@ -28,9 +28,19 @@ The repository confirms the Lambda handler and application behavior. The actual 
 
 ## Repository Contents
 
-| File | Purpose |
+| Path | Purpose |
 | --- | --- |
-| `src/lambda_function.py` | Lambda implementation and all application logic. |
+| `src/lambda_function.py` | Handler entry point; orchestrates the modules below. |
+| `src/config.py` | Environment-driven configuration (`load_config`). |
+| `src/halo_client.py` | Halo OAuth2 client and ticket/note requests. |
+| `src/dedup_repository.py` | DynamoDB-backed alert deduplication. |
+| `src/routing.py` | `M2C` alert-type -> Halo team/action routing table. |
+| `src/ticket_builder.py` | Builds Halo ticket and resolution-note payloads. |
+| `src/metrics.py` | CloudWatch embedded metric format (EMF) helpers. |
+| `tests/` | Unit and integration tests using in-memory fakes (see `tests/README.md`). |
+| `tools/reconciliation/` | Read-only CLI that classifies DynamoDB dedup records against Halo; never mutates either system. |
+| `iac/` | Terragrunt/Terraform for the Lambda, DynamoDB table, IAM, API Gateway, and alarms (`non-prod/uat` deployed so far). |
+| `.github/skills/halo-mock-harness/` | Local mock of Halo (success/failure scenarios, replay fixtures) for testing without live Halo access. |
 | `config-audit.json` | Local snapshot of deployed Lambda metadata and environment configuration. It is ignored by Git because it contains sensitive values. |
 
 ## Entry Point
@@ -215,7 +225,24 @@ Third-party dependency:
 
 - `boto3` for DynamoDB access.
 
-There is currently no `requirements.txt`, `pyproject.toml`, deployment script, Terraform configuration, test suite, or CI configuration in this repository. The deployed package assumes `boto3` is available in the AWS Lambda runtime or was included during packaging.
+`requirements.txt` / `requirements-dev.txt` pin `boto3` and `pytest` respectively; `pyproject.toml` configures `pytest` (`pythonpath = ["src", "tools/reconciliation"]`). The deployed package assumes `boto3` is available in the AWS Lambda runtime or was included during packaging.
+
+## Local Development and Testing
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+pytest
+```
+
+All tests run against in-memory fakes for Halo and DynamoDB - no AWS credentials, network access, or real Halo instance is required.
+
+While live Halo access is unavailable, use the **halo-mock-harness** skill
+(`.github/skills/halo-mock-harness/`) to test beyond the fakes: a loopback
+HTTP server that reproduces real Halo success/failure responses (including
+the `HTTP 400 "Ticket Type not found"` error seen in production logs), plus
+a CLI to replay Alertmanager-shaped fixtures through the real `lambda_handler`.
+See that skill's `SKILL.md` for the full unit -> integration -> e2e -> replay
+test pyramid.
 
 ## Operations and Troubleshooting
 
