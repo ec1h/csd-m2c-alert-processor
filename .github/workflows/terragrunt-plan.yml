@@ -15,7 +15,7 @@ jobs:
     uses: ec1h/reusable-workflows/.github/workflows/reusable_terragrunt_plan.yml@0.1.11
     secrets: inherit
     with:
-      environment: uat
+      env_vars: "TF_VAR_environment=uat"
       terragrunt_dir: "./iac/non-prod/uat/alert-processor"
       terraform_version: "1.11.4"
       terragrunt_version: "0.68.6"
