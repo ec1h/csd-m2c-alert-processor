@@ -10,6 +10,10 @@ on:
     paths:
       - "iac/**"
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   terragrunt-plan:
     uses: ec1h/reusable-workflows/.github/workflows/reusable_terragrunt_plan.yml@0.1.11
