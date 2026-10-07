@@ -12,12 +12,9 @@ on:
     branches: [main]
 
 jobs:
-  pytest:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -r requirements-dev.txt
-      - run: pytest -q
+  build-test:
+    uses: ./.github/workflows/reusable_build_and_test_python_service.yml
+    with:
+      python_version: "3.12"
+      requirements_file: "requirements-dev.txt"
+      pytest_args: "-q"

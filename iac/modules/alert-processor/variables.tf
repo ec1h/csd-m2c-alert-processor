@@ -27,7 +27,7 @@ variable "tags" {
 
 variable "lambda_source_dir" {
   type        = string
-  description = "Absolute path to the Lambda source directory (this repo's src/ folder). Use get_repo_root() in Terragrunt."
+  description = "Absolute path to the Lambda source directory (this repo's src/handlers/alert-processor folder). Use get_repo_root() in Terragrunt."
 }
 
 variable "lambda_runtime" {

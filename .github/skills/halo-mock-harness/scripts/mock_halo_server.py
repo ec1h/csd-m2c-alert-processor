@@ -1,6 +1,6 @@
 """In-process, stdlib-only mock of the HaloITSM endpoints used by HaloClient.
 
-Runs a real HTTP server on loopback so `src/halo_client.py`'s urllib requests
+Runs a real HTTP server on loopback so `src/handlers/alert-processor/halo_client.py`'s urllib requests
 are exercised unmodified (status codes, error body parsing, auth header).
 Scenario behavior is controlled by mutating `server.scenario` directly from
 the same process - no HTTP control channel needed.

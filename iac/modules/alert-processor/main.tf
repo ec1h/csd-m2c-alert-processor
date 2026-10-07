@@ -144,7 +144,7 @@ resource "aws_lambda_function" "this" {
   # API Gateway invokes this synchronously (RequestResponse) - a Lambda DLQ or
   # on-failure destination only applies to async invocations, so it would
   # never fire here. Failure visibility instead comes from the handler's
-  # non-2xx response contract (see src/lambda_function.py) plus the
+  # non-2xx response contract (see src/handlers/alert-processor/lambda_function.py) plus the
   # HaloRequestFailure/UnmappedAlertType alarms in monitoring.tf.
 
   tags = local.tags

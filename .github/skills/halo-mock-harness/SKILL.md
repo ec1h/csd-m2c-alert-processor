@@ -39,7 +39,7 @@ and a single injectable failure (`raise_on_create`, `raise_on_save`). Prefer
 adding scenarios here (e.g. `raise_on_add_note`) over reaching for the HTTP
 mock — it's faster and doesn't need a server. Match real exception shapes:
 `HaloAuthError(msg)` and `HaloRequestError(status_code, msg)` from
-[src/halo_client.py](../../../src/halo_client.py).
+[src/handlers/alert-processor/halo_client.py](../../../src/handlers/alert-processor/halo_client.py).
 
 ### 2. E2E layer — run the local mock Halo server
 [scripts/mock_halo_server.py](./scripts/mock_halo_server.py) is a stdlib-only
@@ -83,7 +83,7 @@ the original Alertmanager JSON bodies. Failed-ticket lines
 not the `M2C` alert type or `fingerprint`, since those aren't printed on that
 code path. Fixtures in [fixtures/](./fixtures/) are therefore **synthetic
 reconstructions** built from a known mapped alert type (see
-[routing.py](../../../src/routing.py) for the valid `M2C` label values), not
+[routing.py](../../../src/handlers/alert-processor/routing.py) for the valid `M2C` label values), not
 byte-for-byte replays of the original request. When you get real payload
 exports (Halo audit log, Grafana silence history, or raw webhook capture),
 drop them into `fixtures/` instead and prefer those.
