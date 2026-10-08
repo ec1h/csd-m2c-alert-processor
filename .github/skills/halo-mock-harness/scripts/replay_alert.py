@@ -1,7 +1,7 @@
 """Replay one Alertmanager webhook payload through the real lambda_handler.
 
 Uses the real `lambda_function`, `HaloClient`, `routing`, and `ticket_builder`
-from `src/`, with Halo swapped for the local mock server and DynamoDB swapped
+from `src/handlers/alert-processor/`, with Halo swapped for the local mock server and DynamoDB swapped
 for an in-memory dict (same shape as tests/test_lambda_handler.py's
 FakeDedup) so nothing touches AWS or a real Halo instance.
 
@@ -16,7 +16,7 @@ import json
 import sys
 from pathlib import Path
 
-_SRC = Path(__file__).resolve().parents[4] / "src"
+_SRC = Path(__file__).resolve().parents[4] / "src" / "handlers" / "alert-processor"
 sys.path.insert(0, str(_SRC))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

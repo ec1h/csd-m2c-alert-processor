@@ -1,3 +1,3 @@
 [tool.pytest.ini_options]
-pythonpath = ["src", "tools/reconciliation"]
+pythonpath = ["src/handlers/alert-processor", "tools/reconciliation"]
 testpaths = ["tests"]

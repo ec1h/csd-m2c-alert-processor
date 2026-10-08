@@ -24,7 +24,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   tags          = local.tags
 }
 
-# Emitted by src/metrics.py when a Halo API call fails (see lambda_function.py).
+# Emitted by src/handlers/alert-processor/metrics.py when a Halo API call fails (see lambda_function.py).
 resource "aws_cloudwatch_metric_alarm" "halo_request_failures" {
   alarm_name          = "${local.name}-halo-request-failures"
   comparison_operator = "GreaterThanThreshold"
@@ -41,7 +41,7 @@ resource "aws_cloudwatch_metric_alarm" "halo_request_failures" {
 }
 
 # Emitted for any Grafana M2C label the routing table doesn't recognize
-# (e.g. "Boot") - see src/routing.py. No ticket is created for these.
+# (e.g. "Boot") - see src/handlers/alert-processor/routing.py. No ticket is created for these.
 resource "aws_cloudwatch_metric_alarm" "unmapped_alert_types" {
   alarm_name          = "${local.name}-unmapped-alert-types"
   comparison_operator = "GreaterThanThreshold"

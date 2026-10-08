@@ -17,7 +17,7 @@ inputs = {
   lambda_source_dir = "${get_repo_root()}/src/handlers/alert-processor"
 
   halo_base_url    = "https://ec1helpdesk.haloitsm.com"
-  halo_secret_name = "uat/csd-m2c-alert-processor/halo"
+  halo_secret_name = "qa/csd-m2c-alert-processor/halo"
 
   tags = local.tags
 }
