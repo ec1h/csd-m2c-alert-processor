@@ -1,0 +1,20 @@
+{
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "fingerprint": "replay-no-communication-0001",
+      "startsAt": "2026-09-21T04:13:12Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "https://grafana.example.test/alerting/grafana/no-communication/view",
+      "silenceURL": "https://grafana.example.test/alerting/silence/new",
+      "labels": {
+        "M2C": "No Communication",
+        "SN": "39B7A20",
+        "MeterSN": "MTR-39B7A20",
+        "grafana_folder": "M2C Alerts"
+      },
+      "values": {}
+    }
+  ]
+}

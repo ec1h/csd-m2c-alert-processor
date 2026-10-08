@@ -1,5 +1,7 @@
 # Protect local configuration & audit dump containing secrets
 config-audit.json
+error_dump.json
+*_dump.json
 
 
 *.zip
@@ -8,3 +10,9 @@ config-audit.json
 *.tfstate
 *.tfstate.*
 .DS_Store
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

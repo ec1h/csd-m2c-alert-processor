@@ -28,9 +28,19 @@ The repository confirms the Lambda handler and application behavior. The actual 
 
 ## Repository Contents
 
-| File | Purpose |
+| Path | Purpose |
 | --- | --- |
-| `src/lambda_function.py` | Lambda implementation and all application logic. |
+| `src/handlers/alert-processor/lambda_function.py` | Handler entry point; orchestrates the modules below. |
+| `src/handlers/alert-processor/config.py` | Environment-driven configuration (`load_config`). |
+| `src/handlers/alert-processor/halo_client.py` | Halo OAuth2 client and ticket/note requests. |
+| `src/handlers/alert-processor/dedup_repository.py` | DynamoDB-backed alert deduplication. |
+| `src/handlers/alert-processor/routing.py` | `M2C` alert-type -> Halo team/action routing table. |
+| `src/handlers/alert-processor/ticket_builder.py` | Builds Halo ticket and resolution-note payloads. |
+| `src/handlers/alert-processor/metrics.py` | CloudWatch embedded metric format (EMF) helpers. |
+| `tests/` | Unit and integration tests using in-memory fakes (see `tests/README.md`). |
+| `tools/reconciliation/` | Read-only CLI that classifies DynamoDB dedup records against Halo; never mutates either system. |
+| `iac/` | Terragrunt/Terraform for the Lambda, DynamoDB table, IAM, API Gateway, and alarms. `non-prod/{test,qa,uat}` share one known AWS account; `prod` is scaffolded but blocked on a real prod AWS account (see `iac/prod/prod/alert-processor/README.md`). Only `non-prod/uat` has actually been applied so far. |
+| `.github/skills/halo-mock-harness/` | Local mock of Halo (success/failure scenarios, replay fixtures) for testing without live Halo access. |
 | `config-audit.json` | Local snapshot of deployed Lambda metadata and environment configuration. It is ignored by Git because it contains sensitive values. |
 
 ## Entry Point
@@ -41,7 +51,7 @@ The deployed handler is:
 lambda_function.lambda_handler
 ```
 
-The implementation is stored in [`src/lambda_function.py`](src/lambda_function.py).
+The implementation is stored in [`src/handlers/alert-processor/lambda_function.py`](src/handlers/alert-processor/lambda_function.py).
 
 The function accepts the standard Lambda `event` and `context` arguments. The current implementation uses `event` and does not use `context`.
 
@@ -215,7 +225,24 @@ Third-party dependency:
 
 - `boto3` for DynamoDB access.
 
-There is currently no `requirements.txt`, `pyproject.toml`, deployment script, Terraform configuration, test suite, or CI configuration in this repository. The deployed package assumes `boto3` is available in the AWS Lambda runtime or was included during packaging.
+`requirements.txt` / `requirements-dev.txt` pin `boto3` and `pytest` respectively; `pyproject.toml` configures `pytest` (`pythonpath = ["src/handlers/alert-processor", "tools/reconciliation"]`). The deployed package assumes `boto3` is available in the AWS Lambda runtime or was included during packaging.
+
+## Local Development and Testing
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+pytest
+```
+
+All tests run against in-memory fakes for Halo and DynamoDB - no AWS credentials, network access, or real Halo instance is required.
+
+While live Halo access is unavailable, use the **halo-mock-harness** skill
+(`.github/skills/halo-mock-harness/`) to test beyond the fakes: a loopback
+HTTP server that reproduces real Halo success/failure responses (including
+the `HTTP 400 "Ticket Type not found"` error seen in production logs), plus
+a CLI to replay Alertmanager-shaped fixtures through the real `lambda_handler`.
+See that skill's `SKILL.md` for the full unit -> integration -> e2e -> replay
+test pyramid.
 
 ## Operations and Troubleshooting
 
