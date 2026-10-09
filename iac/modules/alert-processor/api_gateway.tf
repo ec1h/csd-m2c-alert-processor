@@ -5,6 +5,7 @@
 resource "aws_apigatewayv2_api" "this" {
   name          = local.api_name
   protocol_type = "HTTP"
+  description   = "Receives Grafana Alertmanager webhooks for Meter2Cash IoT alerts"
   tags          = local.tags
 }
 

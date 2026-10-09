@@ -64,11 +64,12 @@ resource "aws_dynamodb_table" "dedup" {
     prevent_destroy = true
   }
 
-  tags = local.tags
+  tags = merge(local.tags, { Name = local.dynamodb_table_name })
 }
 
 data "aws_iam_policy_document" "assume_role" {
   statement {
+    sid     = "AllowLambdaAssumeRole"
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
@@ -80,6 +81,7 @@ data "aws_iam_policy_document" "assume_role" {
 
 resource "aws_iam_role" "lambda" {
   name               = local.lambda_role_name
+  description        = "Execution role for the M2C alert processor Lambda"
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
   tags               = local.tags
 }
@@ -104,8 +106,10 @@ data "aws_iam_policy_document" "lambda_permissions" {
 }
 
 resource "aws_iam_policy" "lambda_permissions" {
-  name   = local.lambda_policy_name
-  policy = data.aws_iam_policy_document.lambda_permissions.json
+  name        = local.lambda_policy_name
+  description = "Least-privilege policy for the M2C alert processor Lambda"
+  policy      = data.aws_iam_policy_document.lambda_permissions.json
+  tags        = local.tags
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_permissions" {
@@ -121,6 +125,7 @@ resource "aws_cloudwatch_log_group" "lambda" {
 
 resource "aws_lambda_function" "this" {
   function_name = local.lambda_function_name
+  description   = "Processes M2C IoT alerts from Grafana and creates Halo ITSM incidents"
   role          = aws_iam_role.lambda.arn
   handler       = "lambda_function.lambda_handler"
   runtime       = var.lambda_runtime
