@@ -1,5 +1,5 @@
 # Manual trigger only - never runs on push or pull_request. Gated by the
-# "uat" GitHub Environment (same as terragrunt-apply.yml); configure required
+# "uat" GitHub Environment (same gating idea as deploy.yml); configure required
 # reviewers there in repo settings before granting real Halo secrets to it.
 #
 # Requires these to be set on the "uat" environment:
@@ -9,6 +9,9 @@
 #   vars.HALO_LIVE_TICKET_TYPE_ID    - optional, defaults to 64 in the test
 #   vars.HALO_LIVE_TEAM_ID           - optional, defaults to 12 in the test
 name: Live Halo Smoke Test
+
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
@@ -23,8 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: uat
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
