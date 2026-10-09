@@ -3,8 +3,9 @@
 # authorizer - it only needs to route and rate-limit.
 
 resource "aws_apigatewayv2_api" "this" {
-  name          = local.name
+  name          = local.api_name
   protocol_type = "HTTP"
+  description   = "Receives Grafana Alertmanager webhooks for Meter2Cash IoT alerts"
   tags          = local.tags
 }
 
@@ -22,7 +23,7 @@ resource "aws_apigatewayv2_route" "alerts" {
 }
 
 resource "aws_cloudwatch_log_group" "api_gateway_access_logs" {
-  name              = "/aws/apigateway/${local.name}"
+  name              = "/aws/apigateway/${local.api_name}"
   retention_in_days = var.lambda_log_retention_days
   tags              = local.tags
 }
@@ -32,21 +33,26 @@ resource "aws_apigatewayv2_stage" "default" {
   name        = "$default"
   auto_deploy = true
 
-  default_route_settings {
-    throttling_burst_limit = var.api_gateway_throttling_burst_limit
-    throttling_rate_limit  = var.api_gateway_throttling_rate_limit
+  # Throttling is opt-in so adopting the live API changes no behaviour.
+  dynamic "default_route_settings" {
+    for_each = var.api_gateway_throttling_rate_limit == null ? [] : [1]
+    content {
+      throttling_burst_limit = var.api_gateway_throttling_burst_limit
+      throttling_rate_limit  = var.api_gateway_throttling_rate_limit
+    }
   }
 
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway_access_logs.arn
     format = jsonencode({
-      requestId               = "$context.requestId"
-      sourceIp                = "$context.identity.sourceIp"
-      requestTime             = "$context.requestTime"
-      httpMethod              = "$context.httpMethod"
-      routeKey                = "$context.routeKey"
-      status                  = "$context.status"
-      integrationErrorMessage = "$context.integrationErrorMessage"
+      httpMethod       = "$context.httpMethod"
+      integrationError = "$context.integrationErrorMessage"
+      requestId        = "$context.requestId"
+      requestTime      = "$context.requestTime"
+      responseLength   = "$context.responseLength"
+      routeKey         = "$context.routeKey"
+      sourceIp         = "$context.identity.sourceIp"
+      status           = "$context.status"
     })
   }
 

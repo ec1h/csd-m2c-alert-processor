@@ -13,11 +13,10 @@ include {
 }
 
 inputs = {
-  component_name    = "alert-processor"
-  lambda_source_dir = "${get_repo_root()}/src/handlers/alert-processor"
+  component_name      = "alert-processor"
+  lambda_package_path = get_env("LAMBDA_PACKAGE_PATH")
 
-  halo_base_url    = "https://ec1helpdesk.haloitsm.com"
-  halo_secret_name = "uat/csd-m2c-alert-processor/halo"
+  halo_base_url = "https://ec1helpdesk.haloitsm.com"
 
   tags = local.tags
 }

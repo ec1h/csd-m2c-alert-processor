@@ -25,9 +25,39 @@ variable "tags" {
   default = {}
 }
 
-variable "lambda_source_dir" {
+variable "lambda_package_path" {
   type        = string
-  description = "Absolute path to the Lambda source directory (this repo's src/handlers/alert-processor folder). Use get_repo_root() in Terragrunt."
+  description = "Path to the release zip built by build.yml (csd-m2c-alert-processor-<sha>.zip). Terraform deploys this exact file and never builds code itself."
+}
+
+variable "lambda_function_name" {
+  type        = string
+  default     = null
+  description = "Override the Lambda name. Set when adopting an existing function so it is not replaced."
+}
+
+variable "lambda_role_name" {
+  type        = string
+  default     = null
+  description = "Override the Lambda execution role name (adoption)."
+}
+
+variable "lambda_policy_name" {
+  type        = string
+  default     = null
+  description = "Override the Lambda permissions policy name (adoption)."
+}
+
+variable "dynamodb_table_name" {
+  type        = string
+  default     = null
+  description = "Override the dedup table name (adoption). Changing it replaces the table."
+}
+
+variable "api_name" {
+  type        = string
+  default     = null
+  description = "Override the HTTP API name (adoption)."
 }
 
 variable "lambda_runtime" {
@@ -80,11 +110,6 @@ variable "halo_team_internal" {
   default = 14
 }
 
-variable "halo_secret_name" {
-  type        = string
-  description = "Name of a pre-existing Secrets Manager secret holding HALO_CLIENT_ID, HALO_CLIENT_SECRET, WEBHOOK_SECRET as JSON keys. Not created by this module - populate it out-of-band before first apply."
-}
-
 variable "alarm_actions" {
   type        = list(string)
   default     = []
@@ -97,6 +122,7 @@ variable "api_gateway_throttling_burst_limit" {
 }
 
 variable "api_gateway_throttling_rate_limit" {
-  type    = number
-  default = 10
+  type        = number
+  default     = null
+  description = "Null leaves the stage unthrottled (current live behaviour)."
 }

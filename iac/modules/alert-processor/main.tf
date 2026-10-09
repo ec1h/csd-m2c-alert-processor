@@ -3,30 +3,45 @@ data "aws_caller_identity" "current" {}
 locals {
   name = "${var.project_name}-${var.component_name}-${var.environment}"
   tags = merge(var.default_tags, var.tags)
+
+  # Adopted stacks pass their existing names so nothing is replaced.
+  lambda_function_name = coalesce(var.lambda_function_name, local.name)
+  lambda_role_name     = coalesce(var.lambda_role_name, local.name)
+  lambda_policy_name   = coalesce(var.lambda_policy_name, "${local.name}-policy")
+  dynamodb_table_name  = coalesce(var.dynamodb_table_name, "${local.name}-dedup")
+  api_name             = coalesce(var.api_name, local.name)
 }
 
-data "archive_file" "lambda" {
-  type        = "zip"
-  source_dir  = var.lambda_source_dir
-  output_path = "${path.module}/.terraform/archive_files/${replace(local.name, "-", "_")}.zip"
+# Existing resources adopted from the legacy stack (state key
+# csd/m2c-alert-integration/terraform.tfstate). These only rename addresses
+# in state; they never touch AWS.
+moved {
+  from = aws_apigatewayv2_api.m2c_alerts
+  to   = aws_apigatewayv2_api.this
 }
 
-# Pre-existing secret; this module only reads it (never writes secret values
-# into Terraform code, variables, or outputs).
-data "aws_secretsmanager_secret" "halo" {
-  name = var.halo_secret_name
+moved {
+  from = aws_apigatewayv2_route.post_alerts
+  to   = aws_apigatewayv2_route.alerts
 }
 
-data "aws_secretsmanager_secret_version" "halo" {
-  secret_id = data.aws_secretsmanager_secret.halo.id
+moved {
+  from = aws_cloudwatch_log_group.api_gateway
+  to   = aws_cloudwatch_log_group.api_gateway_access_logs
 }
 
-locals {
-  halo_secrets = jsondecode(data.aws_secretsmanager_secret_version.halo.secret_string)
+moved {
+  from = aws_iam_role.lambda_exec
+  to   = aws_iam_role.lambda
+}
+
+moved {
+  from = aws_lambda_function.alert_processor
+  to   = aws_lambda_function.this
 }
 
 resource "aws_dynamodb_table" "dedup" {
-  name         = "${local.name}-dedup"
+  name         = local.dynamodb_table_name
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "fingerprint"
 
@@ -40,19 +55,21 @@ resource "aws_dynamodb_table" "dedup" {
     enabled        = true
   }
 
-  server_side_encryption {
-    enabled = true
-  }
-
   point_in_time_recovery {
     enabled = true
   }
 
-  tags = local.tags
+  # Holds live dedup state; a bad plan must never delete it.
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  tags = merge(local.tags, { Name = local.dynamodb_table_name })
 }
 
 data "aws_iam_policy_document" "assume_role" {
   statement {
+    sid     = "AllowLambdaAssumeRole"
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
@@ -63,74 +80,65 @@ data "aws_iam_policy_document" "assume_role" {
 }
 
 resource "aws_iam_role" "lambda" {
-  name               = local.name
+  name               = local.lambda_role_name
+  description        = "Execution role for the M2C alert processor Lambda"
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
   tags               = local.tags
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_basic" {
-  role       = aws_iam_role.lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-# The Lambda only needs point read/write access to its own table - Scan and
-# Delete are intentionally excluded (the reconciliation tool uses a separate,
-# read-only identity, not this role).
-data "aws_iam_policy_document" "dynamodb_access" {
+# One policy, matching the live stack: log writes for this function only and
+# point read/write on its own table. Scan and Delete are intentionally
+# excluded (the reconciliation tool uses a separate, read-only identity).
+data "aws_iam_policy_document" "lambda_permissions" {
   statement {
+    sid       = "AllowCloudWatchLogs"
     effect    = "Allow"
-    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"]
+    actions   = ["logs:PutLogEvents", "logs:CreateLogStream"]
+    resources = ["${aws_cloudwatch_log_group.lambda.arn}:*"]
+  }
+
+  statement {
+    sid       = "AllowDynamoDBDedup"
+    effect    = "Allow"
+    actions   = ["dynamodb:UpdateItem", "dynamodb:PutItem", "dynamodb:GetItem"]
     resources = [aws_dynamodb_table.dedup.arn]
   }
 }
 
-resource "aws_iam_policy" "dynamodb_access" {
-  name   = "${local.name}-dynamodb-access"
-  policy = data.aws_iam_policy_document.dynamodb_access.json
+resource "aws_iam_policy" "lambda_permissions" {
+  name        = local.lambda_policy_name
+  description = "Least-privilege policy for the M2C alert processor Lambda"
+  policy      = data.aws_iam_policy_document.lambda_permissions.json
+  tags        = local.tags
 }
 
-resource "aws_iam_role_policy_attachment" "dynamodb_access" {
+resource "aws_iam_role_policy_attachment" "lambda_permissions" {
   role       = aws_iam_role.lambda.name
-  policy_arn = aws_iam_policy.dynamodb_access.arn
-}
-
-data "aws_iam_policy_document" "secrets_access" {
-  statement {
-    effect    = "Allow"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [data.aws_secretsmanager_secret.halo.arn]
-  }
-}
-
-resource "aws_iam_policy" "secrets_access" {
-  name   = "${local.name}-secrets-access"
-  policy = data.aws_iam_policy_document.secrets_access.json
-}
-
-resource "aws_iam_role_policy_attachment" "secrets_access" {
-  role       = aws_iam_role.lambda.name
-  policy_arn = aws_iam_policy.secrets_access.arn
+  policy_arn = aws_iam_policy.lambda_permissions.arn
 }
 
 resource "aws_cloudwatch_log_group" "lambda" {
-  name              = "/aws/lambda/${local.name}"
+  name              = "/aws/lambda/${local.lambda_function_name}"
   retention_in_days = var.lambda_log_retention_days
   tags              = local.tags
 }
 
 resource "aws_lambda_function" "this" {
-  function_name = local.name
+  function_name = local.lambda_function_name
+  description   = "Processes M2C IoT alerts from Grafana and creates Halo ITSM incidents"
   role          = aws_iam_role.lambda.arn
   handler       = "lambda_function.lambda_handler"
   runtime       = var.lambda_runtime
   memory_size   = var.lambda_memory_size
   timeout       = var.lambda_timeout
 
-  filename         = data.archive_file.lambda.output_path
-  source_code_hash = data.archive_file.lambda.output_base64sha256
+  # Deploys the exact zip built and tested by build.yml and attached to a
+  # release; Terraform never builds code itself.
+  filename         = var.lambda_package_path
+  source_code_hash = filebase64sha256(var.lambda_package_path)
 
   environment {
-    variables = merge(local.halo_secrets, {
+    variables = {
       HALO_BASE_URL       = var.halo_base_url
       HALO_TICKET_TYPE_ID = tostring(var.halo_ticket_type_id)
       HALO_TEAM_EC1       = tostring(var.halo_team_ec1)
@@ -138,7 +146,16 @@ resource "aws_lambda_function" "this" {
       HALO_TEAM_INTERNAL  = tostring(var.halo_team_internal)
       DYNAMODB_TABLE      = aws_dynamodb_table.dedup.name
       DYNAMODB_TTL_DAYS   = tostring(var.dynamodb_ttl_days)
-    })
+    }
+  }
+
+  # HALO_CLIENT_ID, HALO_CLIENT_SECRET and WEBHOOK_SECRET are set on the live
+  # function out-of-band and must never pass through Terraform code, state
+  # inputs or CI logs. Ignoring the block keeps them (and the live values of
+  # the settings above) untouched; moving them to Secrets Manager is a
+  # follow-up.
+  lifecycle {
+    ignore_changes = [environment]
   }
 
   # API Gateway invokes this synchronously (RequestResponse) - a Lambda DLQ or

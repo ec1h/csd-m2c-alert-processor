@@ -1,0 +1,153 @@
+# Repo-owned deploy workflow - not calling ec1h/reusable-workflows.
+#
+# Deploys an existing GitHub Release (built once by create_release.yml) to one
+# environment with Terragrunt. It never builds: it downloads the release zip,
+# verifies its sha256, and hands that exact file to Terraform through
+# LAMBDA_PACKAGE_PATH. Rollback = re-dispatch with an older release tag.
+#
+# Safety:
+#   - `apply` defaults to false, so a dispatch is a plan-only dry run.
+#   - The job runs in the chosen GitHub Environment; configure required
+#     reviewers there (repo settings) for the approval gate. This file cannot
+#     set that protection.
+#   - The plan that is applied is the saved plan that was just produced, and
+#     the job fails if the plan contains any destroy unless `allow_destroy`.
+#   - prod is not dispatchable: its iac folder is a non-appliable placeholder.
+#   - Auth is GitHub OIDC (no stored AWS keys). The role comes from
+#     .github/environments/.env.<environment>.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy to
+        type: environment
+        required: true
+        default: test
+      release_tag:
+        description: Release tag to deploy (for example v0.1.0)
+        type: string
+        required: true
+      apply:
+        description: Apply the plan (otherwise plan only)
+        type: boolean
+        default: false
+      allow_destroy:
+        description: Allow a plan that destroys or replaces resources
+        type: boolean
+        default: false
+
+run-name: Deploy ${{ inputs.release_tag }} to ${{ inputs.environment }} (apply=${{ inputs.apply }})
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TERRAFORM_VERSION: "1.11.4"
+  TERRAGRUNT_VERSION: "1.1.4"
+  AWS_REGION: af-south-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ENVIRONMENT: ${{ inputs.environment }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - name: Reject unsupported inputs
+        run: |
+          if [ "${ENVIRONMENT}" = "prod" ]; then
+            echo "::error::prod is a non-appliable placeholder and cannot be deployed."
+            exit 1
+          fi
+          if ! [[ "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release_tag must look like v1.2.3."
+            exit 1
+          fi
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Resolve the Terragrunt directory
+        run: |
+          dir="iac/non-prod/${ENVIRONMENT}/alert-processor"
+          test -d "${dir}" || { echo "::error::${dir} does not exist."; exit 1; }
+          echo "TG_DIR=${dir}" >> "$GITHUB_ENV"
+
+      - name: Download and verify the release package
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/release"
+          gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+            --pattern '*.zip' --pattern '*.zip.sha256' --dir "${RUNNER_TEMP}/release"
+          cd "${RUNNER_TEMP}/release"
+          sha256sum -c ./*.zip.sha256
+          zip=$(ls ./*.zip)
+          echo "LAMBDA_PACKAGE_PATH=${RUNNER_TEMP}/release/${zip#./}" >> "$GITHUB_ENV"
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Install Terragrunt
+        run: |
+          set -euo pipefail
+          base="https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}"
+          curl -fsSL -o terragrunt "${base}/terragrunt_linux_amd64"
+          curl -fsSL -o SHA256SUMS "${base}/SHA256SUMS"
+          grep ' terragrunt_linux_amd64$' SHA256SUMS | sed 's/terragrunt_linux_amd64/terragrunt/' | sha256sum -c -
+          sudo install -m 0755 terragrunt /usr/local/bin/terragrunt
+          terragrunt --version
+
+      - name: Read the AWS target for this environment
+        run: |
+          set -euo pipefail
+          env_file=".github/environments/.env.${ENVIRONMENT}"
+          test -f "${env_file}" || { echo "::error::${env_file} is missing."; exit 1; }
+          set -a; . "./${env_file}"; set +a
+          echo "AWS_ROLE_ARN=arn:aws:iam::${CSD_AWS_ACCOUNT_ID}:role/${ROLE_NAME}" >> "$GITHUB_ENV"
+
+      - uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive iac/modules
+
+      - name: Plan
+        working-directory: ${{ env.TG_DIR }}
+        env:
+          TG_TF_PATH: terraform
+        run: terragrunt plan -out=tfplan --non-interactive
+
+      - name: Refuse unexpected destroys or replacements
+        working-directory: ${{ env.TG_DIR }}
+        env:
+          TG_TF_PATH: terraform
+          ALLOW_DESTROY: ${{ inputs.allow_destroy }}
+        run: |
+          set -euo pipefail
+          terragrunt show -json tfplan --non-interactive > plan.json
+          n=$(jq '[.resource_changes[]? | select(.change.actions | index("delete"))] | length' plan.json)
+          echo "Resources to destroy or replace: ${n}"
+          if [ "${n}" -gt 0 ] && [ "${ALLOW_DESTROY}" != "true" ]; then
+            jq -r '.resource_changes[] | select(.change.actions | index("delete")) | "\(.address) \(.change.actions)"' plan.json
+            echo "::error::Plan destroys or replaces resources; review it, then re-run with allow_destroy."
+            exit 1
+          fi
+
+      - name: Apply
+        if: ${{ inputs.apply }}
+        working-directory: ${{ env.TG_DIR }}
+        env:
+          TG_TF_PATH: terraform
+        run: terragrunt apply --non-interactive tfplan

@@ -68,9 +68,9 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       # Vendor runtime dependencies (e.g. a pinned boto3) alongside the
-      # handler code - Terraform's archive_file only zips LAMBDA_SOURCE_DIR
-      # itself, so anything the Lambda needs beyond the AWS-provided runtime
-      # must be installed into the same directory the zip is built from.
+      # handler code, so the zip Terraform deploys is self-contained.
+      # Anything the Lambda needs beyond the AWS-provided runtime must be
+      # installed into the same directory the zip is built from.
       - name: Assemble Lambda package contents
         run: |
           set -euo pipefail

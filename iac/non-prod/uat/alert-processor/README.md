@@ -2,6 +2,6 @@
 
 Calls `iac/modules/alert-processor` with UAT-specific inputs. No production caller exists yet.
 
-`halo_secret_name` must already exist in Secrets Manager (JSON keys `HALO_CLIENT_ID`, `HALO_CLIENT_SECRET`, `WEBHOOK_SECRET`) before the first apply - this module only reads it.
+Not yet deployed. Set `LAMBDA_PACKAGE_PATH` to the release zip. Credentials are not managed by Terraform (the function's `environment` is ignored), so they must be set on the function out-of-band after creation.
 
-Resource names are derived from `project_name`/`component_name`/`environment` and will **not** match the currently-deployed Lambda/table/API Gateway names. Applying this as-is creates new, parallel resources; adopting the existing ones requires either a deliberate `terraform import` (matching names first) or a planned cutover - do not assume this replaces the live resources.
+Names derive from `project_name`/`component_name`/`environment`, so this creates a new stack separate from the live `test` stack.
