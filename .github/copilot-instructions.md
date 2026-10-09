@@ -5,7 +5,7 @@ AWS Lambda (`src/handlers/alert-processor/`) triggered by a Grafana Alertmanager
 
 ## Build and Test
 - `pip install -r requirements-dev.txt && pytest -q` - full suite.
-- Lambda packaging is handled entirely by Terraform's `archive_file` (zips `src/handlers/alert-processor/`) - never hand-build or upload a zip separately.
+- Lambda packaging happens once, in `build.yml`; `create_release.yml` attaches that exact zip to a release and Terraform deploys it via `lambda_package_path` - never hand-build or upload a zip separately.
 
 ## Conventions
 - Environments: `test`/`qa`/`uat` share one known non-prod AWS account; `prod` is scaffolded but intentionally non-appliable (placeholder `000000000000` account ID) until a real prod account exists - never replace that placeholder with a guessed value.

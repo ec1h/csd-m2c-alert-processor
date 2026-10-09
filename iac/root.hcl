@@ -17,8 +17,9 @@ locals {
   account_id  = local.account_vars.locals.aws_account_id
   environment = local.environment_vars.locals.environment
 
-  state_bucket_name = "${local.project_name}-terraform-backend-${local.environment}-${local.aws_region}-bucket"
-  lock_table_name    = "${local.project_name}-terraform-state-${local.environment}-${local.aws_region}-lock"
+  state_bucket_name = try(local.environment_vars.locals.state_bucket_name, "${local.project_name}-terraform-backend-${local.environment}-${local.aws_region}-bucket")
+  state_key         = try(local.environment_vars.locals.state_key, "${local.project_name}/${local.environment}/${path_relative_to_include()}/terraform.tfstate")
+  lock_table_name   = try(local.environment_vars.locals.lock_table_name, "${local.project_name}-terraform-state-${local.environment}-${local.aws_region}-lock")
 
   common_vars = {
     aws_region   = local.aws_region
@@ -62,7 +63,7 @@ remote_state {
   config = {
     encrypt        = true
     bucket         = local.state_bucket_name
-    key            = "${local.project_name}/${local.environment}/${path_relative_to_include()}/terraform.tfstate"
+    key            = local.state_key
     region         = local.aws_region
     dynamodb_table = local.lock_table_name
   }
